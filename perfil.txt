@@ -1,0 +1,210 @@
+<?php
+require 'config.php';
+
+// 1. Verifica se tem um ID na URL (ex: perfil.php?id=5)
+$id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+
+if (!$id) {
+    header("Location: index.php"); // Se não tiver ID, volta pra home
+    exit;
+}
+
+// 2. Busca os dados desse perfil específico no banco
+$sql = "SELECT * FROM perfis WHERE id = :id";
+$stmt = $pdo->prepare($sql);
+$stmt->bindValue(':id', $id);
+$stmt->execute();
+$perfil = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// 3. Se o perfil não existir (ex: foi apagado), volta pra home
+if (!$perfil) {
+    header("Location: index.php");
+    exit;
+}
+?>
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= htmlspecialchars($perfil['nome']) ?> - Acompanhante em <?= htmlspecialchars($perfil['cidade']) ?></title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        /* --- ESTILOS GERAIS (Igual ao Index) --- */
+        * { box-sizing: border-box; }
+        body { background-color: #f2f2f2; font-family: 'Roboto', sans-serif; margin: 0; padding: 0; }
+        
+        /* Cabeçalho */
+        .top-bar {
+            background: #fff; border-bottom: 1px solid #ddd; padding: 15px 20px;
+            display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 40px;
+        }
+        .logo-img { height: 55px; width: auto; display: block; }
+        
+        /* Botão Voltar (Mobile) */
+        .btn-voltar-topo { display: none; color: #333; font-size: 1.2rem; text-decoration: none; margin-right: auto; }
+
+        /* --- CONTEÚDO DO PERFIL --- */
+        .container { max-width: 1100px; margin: 20px auto; padding: 0 15px; }
+
+        /* Breadcrumbs */
+        .breadcrumbs { font-size: 0.9rem; color: #666; margin-bottom: 15px; }
+        .breadcrumbs a { color: #666; text-decoration: none; }
+        .breadcrumbs a:hover { text-decoration: underline; }
+
+        /* Layout Grid (Foto Esquerda | Info Direita) */
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* Duas colunas iguais */
+            gap: 30px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            padding: 20px;
+        }
+
+        /* Coluna da Foto */
+        .photo-column { position: relative; }
+        .main-photo {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            object-fit: cover;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .tag-verified {
+            position: absolute; top: 10px; left: 10px;
+            background: rgba(0,0,0,0.7); color: #fff;
+            padding: 5px 10px; border-radius: 4px; font-size: 0.8rem;
+            display: flex; align-items: center; gap: 5px;
+        }
+
+        /* Coluna de Informações */
+        .info-column { display: flex; flex-direction: column; }
+        
+        .profile-name { 
+            font-size: 2rem; font-weight: 700; color: #333; margin: 0; 
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .profile-age { font-weight: 400; color: #666; font-size: 1.5rem; }
+        
+        .profile-location {
+            color: #777; font-size: 1rem; margin-top: 5px; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 5px; border-bottom: 1px solid #eee; padding-bottom: 15px;
+        }
+
+        /* Tabela de Detalhes (Cachê, etc) */
+        .details-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;
+        }
+        .detail-item { background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #eee; }
+        .detail-label { display: block; font-size: 0.75rem; color: #888; font-weight: bold; text-transform: uppercase; }
+        .detail-value { display: block; font-size: 1.1rem; color: #333; font-weight: 500; }
+        .price-value { color: #2e7d32; font-weight: bold; }
+
+        /* Descrição */
+        .description-box {
+            background: #fff; margin-bottom: 25px; line-height: 1.6; color: #444;
+        }
+        .section-title { font-size: 1.1rem; font-weight: bold; color: #333; margin-bottom: 10px; border-left: 4px solid #c62828; padding-left: 10px; }
+
+        /* Botão WhatsApp Gigante */
+        .btn-whatsapp-large {
+            background-color: #25D366; color: white;
+            text-decoration: none; font-size: 1.2rem; font-weight: bold;
+            padding: 15px; border-radius: 8px; text-align: center;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: background 0.3s;
+            margin-top: auto; /* Empurra para o final */
+            box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4);
+        }
+        .btn-whatsapp-large:hover { background-color: #1ebe57; }
+
+        /* RESPONSIVO (Celular) */
+        @media (max-width: 768px) {
+            .top-bar { justify-content: space-between; padding: 10px 15px; }
+            .logo-img { height: 40px; margin: 0 auto; }
+            .btn-voltar-topo { display: block; position: absolute; left: 15px; }
+            
+            .profile-grid { grid-template-columns: 1fr; gap: 20px; padding: 15px; }
+            .profile-name { font-size: 1.5rem; }
+            .main-photo { height: 400px; } /* Foto alta no celular */
+        }
+    </style>
+</head>
+<body>
+
+<!-- TOPO -->
+<div class="top-bar">
+    <a href="index.php" class="btn-voltar-topo"><i class="fas fa-arrow-left"></i></a>
+    <a href="index.php"><img src="img/logo.png" alt="Logo" class="logo-img"></a>
+    <div style="width: 20px;"></div> <!-- Espaço vazio pra equilibrar o voltar -->
+</div>
+
+<div class="container">
+    
+    <!-- Breadcrumbs -->
+    <div class="breadcrumbs">
+        <a href="index.php">Início</a> > 
+        <a href="index.php?local=<?= urlencode($perfil['cidade']) ?>"><?= htmlspecialchars($perfil['cidade']) ?></a> > 
+        <?= htmlspecialchars($perfil['nome']) ?>
+    </div>
+
+    <div class="profile-grid">
+        
+        <!-- FOTO -->
+        <div class="photo-column">
+            <div class="tag-verified"><i class="fas fa-check-circle"></i> Verificada</div>
+            <img src="uploads/<?= htmlspecialchars($perfil['foto']) ?>" alt="<?= htmlspecialchars($perfil['nome']) ?>" class="main-photo">
+        </div>
+
+        <!-- INFORMAÇÕES -->
+        <div class="info-column">
+            
+            <h1 class="profile-name">
+                <?= htmlspecialchars($perfil['nome']) ?>
+                <span class="profile-age"><?= $perfil['idade'] ?> anos</span>
+            </h1>
+            
+            <div class="profile-location">
+                <i class="fas fa-map-marker-alt" style="color: #c62828;"></i>
+                <?= htmlspecialchars($perfil['bairro']) ?> - <?= htmlspecialchars($perfil['cidade']) ?> / <?= htmlspecialchars($perfil['estado']) ?>
+            </div>
+
+            <!-- Dados Rápidos -->
+            <div class="details-grid">
+                <div class="detail-item">
+                    <span class="detail-label">Cachê (Hora)</span>
+                    <span class="detail-value price-value">
+                        <?= $perfil['valor'] ? 'R$ ' . $perfil['valor'] : 'A combinar' ?>
+                    </span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">WhatsApp</span>
+                    <span class="detail-value">Ver telefone</span>
+                </div>
+            </div>
+
+            <div class="section-title">Sobre Mim</div>
+            <div class="description-box">
+                <?= nl2br(htmlspecialchars($perfil['descricao'])) ?>
+            </div>
+
+            <a href="https://wa.me/55<?= $perfil['whatsapp'] ?>?text=Olá, vi seu perfil no site e gostaria de saber mais." class="btn-whatsapp-large" target="_blank">
+                <i class="fab fa-whatsapp" style="font-size: 1.5rem;"></i>
+                CHAMAR NO WHATSAPP
+            </a>
+
+            <p style="text-align: center; color: #999; font-size: 0.8rem; margin-top: 10px;">
+                <i class="fas fa-shield-alt"></i> Pagamento direto com a modelo. Não pedimos adiantamento.
+            </p>
+
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
